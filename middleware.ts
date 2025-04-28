@@ -31,9 +31,13 @@ export async function middleware(request: NextRequest) {
     const isAdminRoute = request.nextUrl.pathname.startsWith("/admin")
     const isAdminLoginRoute = request.nextUrl.pathname === "/admin/login"
 
+    // Check for admin session cookie
+    const adminSessionCookie = request.cookies.get("admin_session")
+    const isAdminSession = adminSessionCookie?.value === "true"
+
     // Log authentication status for debugging
     console.log(
-      `[MIDDLEWARE] Path: ${request.nextUrl.pathname}, Auth: ${!!session}, Protected: ${isProtectedRoute}, Admin: ${isAdminRoute}`,
+      `[MIDDLEWARE] Path: ${request.nextUrl.pathname}, Auth: ${!!session}, Admin: ${isAdminSession}, Protected: ${isProtectedRoute}`,
     )
 
     // Prevent redirect loops by checking the URL
@@ -63,11 +67,16 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
 
-    // For admin routes, let the page handle the admin check
-    // The admin layout will handle redirecting non-admin users
-    if (isAdminRoute && !isAdminLoginRoute) {
-      // We'll let the admin layout handle the admin check
-      return res
+    // For admin routes (except login), check if user has admin session
+    if (isAdminRoute && !isAdminLoginRoute && !isAdminSession) {
+      console.log("[MIDDLEWARE] Non-admin attempting to access admin route, redirecting to admin login")
+      return NextResponse.redirect(new URL("/admin/login", request.url))
+    }
+
+    // If user has admin session and tries to access admin login, redirect to admin dashboard
+    if (isAdminLoginRoute && isAdminSession) {
+      console.log("[MIDDLEWARE] Admin already logged in, redirecting to admin dashboard")
+      return NextResponse.redirect(new URL("/admin", request.url))
     }
 
     return res

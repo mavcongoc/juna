@@ -29,13 +29,14 @@ export class AdminAuthService {
    */
   static async isAdminClient(): Promise<boolean> {
     try {
-      console.log("[ADMIN AUTH] Checking admin status (client-side)")
+      // First check for admin session cookie directly
+      if (document.cookie.includes("admin_session=true")) {
+        return true
+      }
 
-      // First check for admin session cookie using the API
+      // If no cookie, check with the API
       const response = await fetch("/api/admin/check-session")
       const data = await response.json()
-
-      console.log("[ADMIN AUTH] Client-side check result:", data)
       return !!data.isAdmin
     } catch (error) {
       console.error("[ADMIN AUTH] Client-side admin check error:", error)
@@ -49,14 +50,11 @@ export class AdminAuthService {
    */
   static async isAdminServer(): Promise<boolean> {
     try {
-      console.log("[ADMIN AUTH] Checking admin status (server-side)")
-
       // Check for admin session cookie first (faster)
       const cookieStore = cookies()
       const adminSessionCookie = cookieStore.get("admin_session")
 
       if (adminSessionCookie?.value === "true") {
-        console.log("[ADMIN AUTH] Admin session cookie found")
         return true
       }
 
@@ -85,7 +83,6 @@ export class AdminAuthService {
       } = await supabase.auth.getSession()
 
       if (!session?.user) {
-        console.log("[ADMIN AUTH] No authenticated user found")
         return false
       }
 
@@ -97,11 +94,9 @@ export class AdminAuthService {
         .single()
 
       if (error || !adminUser) {
-        console.log("[ADMIN AUTH] User is not an admin:", error?.message || "No admin record found")
         return false
       }
 
-      console.log("[ADMIN AUTH] User confirmed as admin")
       return true
     } catch (error) {
       console.error("[ADMIN AUTH] Server-side admin check error:", error)
@@ -111,48 +106,72 @@ export class AdminAuthService {
 
   /**
    * Sign in an admin user
+   * This method handles both authentication and setting the admin session
    */
   static async signIn(email: string, password: string) {
     try {
+      console.log("[ADMIN AUTH] Signing in admin user:", email)
       const supabase = getSupabaseClient()
 
-      // First, sign in with Supabase Auth
+      // Step 1: Sign in with Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
+        console.error("[ADMIN AUTH] Authentication failed:", error.message)
         return { success: false, error }
       }
 
       if (!data.user) {
+        console.error("[ADMIN AUTH] No user returned from auth")
         return { success: false, error: { message: "Authentication failed" } }
       }
 
-      // Check if the user is an admin
+      console.log("[ADMIN AUTH] User authenticated, checking admin status")
+
+      // Step 2: Check if the user is an admin
       const { data: adminData, error: adminError } = await supabase
         .from("admin_users")
         .select("*")
         .eq("user_id", data.user.id)
         .single()
 
-      if (adminError || !adminData) {
-        // Sign out if not an admin
+      if (adminError) {
+        console.error("[ADMIN AUTH] Error checking admin status:", adminError.message)
+        await supabase.auth.signOut()
+        return { success: false, error: { message: "Error verifying admin privileges" } }
+      }
+
+      if (!adminData) {
+        console.error("[ADMIN AUTH] User is not an admin")
         await supabase.auth.signOut()
         return { success: false, error: { message: "You do not have admin privileges" } }
       }
 
-      // Set admin session cookie via API
-      const response = await fetch("/api/admin/set-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+      console.log("[ADMIN AUTH] Admin status confirmed, setting session cookie")
 
-      if (!response.ok) {
-        console.error("[ADMIN AUTH] Failed to set admin session")
+      // Step 3: Set admin session cookie directly in the browser
+      document.cookie = "admin_session=true; path=/; max-age=86400; SameSite=Lax"
+
+      // Step 4: Also try to set the cookie via a direct API call with the user ID
+      try {
+        const response = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+        })
+
+        if (!response.ok) {
+          console.warn("[ADMIN AUTH] API login failed, using fallback cookie")
+          // Continue anyway since we set the cookie directly
+        }
+      } catch (apiError) {
+        console.warn("[ADMIN AUTH] Error calling login API:", apiError)
+        // Continue anyway since we set the cookie directly
       }
 
       return { success: true, user: data.user, adminData }
@@ -167,17 +186,28 @@ export class AdminAuthService {
    */
   static async signOut() {
     try {
+      console.log("[ADMIN AUTH] Signing out admin user")
       const supabase = getSupabaseClient()
 
-      // Clear admin session cookie via API
-      await fetch("/api/admin/clear-session", { method: "POST" })
+      // Clear admin session cookie directly
+      document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
+
+      // Also try to clear any other auth-related cookies
+      document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
+      document.cookie = "sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
 
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
 
       if (error) {
+        console.error("[ADMIN AUTH] Error signing out:", error.message)
         return { success: false, error }
       }
+
+      console.log("[ADMIN AUTH] Successfully signed out")
+
+      // Redirect to home page
+      window.location.href = "/"
 
       return { success: true }
     } catch (error) {

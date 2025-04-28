@@ -29,22 +29,31 @@ export default function AdminLoginModal({ open, onClose }: AdminLoginModalProps)
     setError(null)
 
     try {
+      console.log("[ADMIN LOGIN] Attempting login with email:", email)
+
+      // Use the simplified sign-in method
       const result = await AdminAuthService.signIn(email, password)
 
       if (!result.success) {
+        console.error("[ADMIN LOGIN] Login failed:", result.error)
         throw new Error(result.error?.message || "Failed to sign in")
       }
 
-      // Force refresh to update auth state
-      router.refresh()
+      console.log("[ADMIN LOGIN] Login successful")
 
-      // Close modal
-      onClose()
+      // Wait a moment for cookies to be set
+      setTimeout(() => {
+        // Close modal
+        onClose()
 
-      // Redirect to admin dashboard
-      router.push("/admin/dashboard")
+        // Force refresh to update auth state
+        router.refresh()
+
+        // Redirect to admin dashboard
+        router.push("/admin")
+      }, 500)
     } catch (err) {
-      console.error("Admin login error:", err)
+      console.error("[ADMIN LOGIN] Error during login:", err)
       setError(err instanceof Error ? err.message : "Failed to sign in")
     } finally {
       setLoading(false)

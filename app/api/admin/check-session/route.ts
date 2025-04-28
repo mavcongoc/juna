@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 
 export async function GET() {
   try {
-    // First check for admin session cookie
+    console.log("[API] Checking admin session")
     const cookieStore = cookies()
+
+    // First check for the admin_session cookie
     const adminSessionCookie = cookieStore.get("admin_session")
 
     if (adminSessionCookie?.value === "true") {
@@ -54,7 +56,7 @@ export async function GET() {
       return NextResponse.json({ isAdmin: false })
     }
 
-    // Set admin session cookie for future requests
+    // Set the admin_session cookie since we've verified the user is an admin
     cookieStore.set("admin_session", "true", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -66,7 +68,7 @@ export async function GET() {
     console.log("[API] User confirmed as admin")
     return NextResponse.json({ isAdmin: true })
   } catch (error) {
-    console.error("[API] Error checking admin status:", error)
-    return NextResponse.json({ isAdmin: false, error: "Failed to check admin status" }, { status: 500 })
+    console.error("[API] Check admin session error:", error)
+    return NextResponse.json({ isAdmin: false, error: "Server error" })
   }
 }

@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   MoonIcon,
@@ -24,7 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { usePathname } from "next/navigation"
 import JunaLogo from "@/components/juna-logo"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
@@ -45,7 +44,7 @@ export default function Header() {
   }
 
   // Don't show regular header on admin pages
-  if (pathname?.startsWith("/admin/")) {
+  if (pathname?.startsWith("/admin")) {
     return null
   }
 

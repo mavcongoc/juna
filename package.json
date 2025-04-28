@@ -76,9 +76,9 @@
     "zustand": "latest",
     "lru-cache": "latest",
     "@monaco-editor/react": "latest",
-    "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest",
-    "openai": "latest"
+    "openai": "latest",
+    "@supabase/auth-helpers-nextjs": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

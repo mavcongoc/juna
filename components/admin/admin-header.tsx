@@ -1,111 +1,105 @@
 "use client"
 
-import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { LogOut, ShieldCheck, Settings, BarChart2, MessageSquare, FileText, Home } from "lucide-react"
-import { AdminAuthService } from "@/lib/admin/admin-auth"
+import { MoonIcon, SunIcon, LogOut, Settings, LayoutDashboard, FileText, BarChart } from "lucide-react"
 import { useTheme } from "next-themes"
-import { MoonIcon, SunIcon } from "lucide-react"
-import JunaLogo from "@/components/juna-logo"
-import { cn } from "@/lib/utils"
+import Link from "next/link"
+import { AdminAuthService } from "@/lib/admin/admin-auth"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
-export default function AdminHeader() {
-  const router = useRouter()
-  const pathname = usePathname()
+export function AdminHeader() {
   const { setTheme, resolvedTheme } = useTheme()
+  const router = useRouter()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const handleSignOut = async () => {
-    await AdminAuthService.signOut()
-    router.push("/")
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      const result = await AdminAuthService.signOut()
+
+      if (result.success) {
+        // Redirect to home page
+        router.push("/")
+      } else {
+        console.error("Logout failed:", result.error)
+        // Force redirect even if there was an error
+        window.location.href = "/"
+      }
+    } catch (error) {
+      console.error("Error during logout:", error)
+      // Force redirect on error
+      window.location.href = "/"
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
-
-  const toggleTheme = () => {
-    const currentTheme = resolvedTheme === "dark" ? "light" : "dark"
-    setTheme(currentTheme)
-  }
-
-  // Admin navigation items (moved from sidebar to top nav)
-  const navItems = [
-    {
-      name: "Dashboard",
-      href: "/admin",
-      icon: Home,
-      exact: true,
-    },
-    {
-      name: "Prompts",
-      href: "/admin/prompts",
-      icon: MessageSquare,
-      exact: false,
-    },
-    {
-      name: "Analytics",
-      href: "/admin/analytics",
-      icon: BarChart2,
-      exact: false,
-    },
-    {
-      name: "Settings",
-      href: "/admin/settings",
-      icon: Settings,
-      exact: false,
-    },
-    {
-      name: "Documentation",
-      href: "/admin/prompts/documentation",
-      icon: FileText,
-      exact: true,
-    },
-  ]
 
   return (
-    <header className="border-b border-border/40 backdrop-blur-sm bg-background/80 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3 flex flex-col">
-        {/* Top row with logo and actions */}
-        <div className="flex justify-between items-center mb-2">
-          <Link href="/admin" className="flex items-center gap-2">
-            <JunaLogo textClassName="text-xl" />
-            <div className="flex items-center text-primary font-medium">
-              <ShieldCheck className="h-4 w-4 mr-1" />
-              Admin
-            </div>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <div className="mr-4 flex">
+          <Link href="/admin" className="flex items-center space-x-2">
+            <span className="font-bold">Juna Admin</span>
           </Link>
-
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full">
+        </div>
+        <div className="flex flex-1 items-center justify-end space-x-2">
+          <nav className="flex items-center space-x-2">
+            <Link href="/admin/dashboard">
+              <Button variant="ghost" size="sm" className="w-9 px-0">
+                <LayoutDashboard className="h-5 w-5" />
+                <span className="sr-only">Dashboard</span>
+              </Button>
+            </Link>
+            <Link href="/admin/prompts">
+              <Button variant="ghost" size="sm" className="w-9 px-0">
+                <FileText className="h-5 w-5" />
+                <span className="sr-only">Prompts</span>
+              </Button>
+            </Link>
+            <Link href="/admin/analytics">
+              <Button variant="ghost" size="sm" className="w-9 px-0">
+                <BarChart className="h-5 w-5" />
+                <span className="sr-only">Analytics</span>
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-9 px-0"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            >
               {resolvedTheme === "dark" ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
               <span className="sr-only">Toggle theme</span>
             </Button>
-
-            <Button variant="ghost" size="sm" onClick={handleSignOut} className="flex items-center gap-1">
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Bottom row with navigation */}
-        <div className="flex items-center space-x-1 overflow-x-auto pb-2">
-          {navItems.map((item) => {
-            const isActive = item.exact ? pathname === item.href : pathname?.startsWith(item.href)
-
-            return (
-              <Link key={item.href} href={item.href} passHref>
-                <Button
-                  variant={isActive ? "secondary" : "ghost"}
-                  size="sm"
-                  className={cn(
-                    "flex items-center gap-1.5",
-                    isActive ? "text-secondary-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.name}</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-9 px-0">
+                  <Settings className="h-5 w-5" />
+                  <span className="sr-only">Settings</span>
                 </Button>
-              </Link>
-            )
-          })}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Admin Settings</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/settings">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </nav>
         </div>
       </div>
     </header>
